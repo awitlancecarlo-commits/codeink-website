@@ -1052,9 +1052,33 @@ function AdminDashboard({ shop, onLogout }) {
   );
 }
 
+function resizeImageFile(file, maxDim = 900, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) { height = Math.round(height * (maxDim / width)); width = maxDim; }
+        else if (height > maxDim) { width = Math.round(width * (maxDim / height)); height = maxDim; }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("Couldn't read that image"));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error("Couldn't read that file"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function AdminDesigns({ shop }) {
   const blank = { id: "", title: "", category: shop.categories[0], size: "3-4 in", price: 100, placement: "", desc: "", image: "" };
   const [editing, setEditing] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   const save = () => {
     if (!editing.title) return;
@@ -1064,6 +1088,20 @@ function AdminDesigns({ shop }) {
     setEditing(null);
   };
   const remove = (id) => shop.updateDesigns(shop.designs.filter(d => d.id !== id));
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataUrl = await resizeImageFile(file);
+      setEditing((prev) => ({ ...prev, image: dataUrl }));
+    } catch (err) {
+      window.alert("Couldn't read that image — try a different file (JPG, PNG, or WEBP).");
+    }
+    setUploading(false);
+    e.target.value = "";
+  };
 
   return (
     <div>
@@ -1087,8 +1125,17 @@ function AdminDesigns({ shop }) {
           </div>
           <Field label="Placement suggestions"><input value={editing.placement} onChange={(e) => setEditing({ ...editing, placement: e.target.value })} /></Field>
           <Field label="Description"><textarea rows={2} value={editing.desc} onChange={(e) => setEditing({ ...editing, desc: e.target.value })} /></Field>
-          <Field label="Photo URL (optional — leave blank to use generated art)">
-            <input value={editing.image || ""} onChange={(e) => setEditing({ ...editing, image: e.target.value })} placeholder="https://..." />
+          <Field label="Upload a photo from your computer">
+            <div className="ck-upload">
+              <Upload size={15} />
+              <span>{uploading ? "Processing…" : "Choose file"}</span>
+              <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} />
+            </div>
+          </Field>
+          <Field label="…or paste a photo URL instead (optional — leave both blank to use generated art)">
+            <input value={editing.image && editing.image.startsWith("data:") ? "" : (editing.image || "")}
+              onChange={(e) => setEditing({ ...editing, image: e.target.value })}
+              placeholder={editing.image && editing.image.startsWith("data:") ? "Uploaded photo set — typing here replaces it" : "https://..."} />
           </Field>
           {editing.image && (
             <img src={editing.image} alt="preview" style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 4, border: "1px solid var(--ck-line)" }} />
