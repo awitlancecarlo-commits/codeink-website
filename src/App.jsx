@@ -136,6 +136,7 @@ function useShopData() {
   const [bookings, setBookings] = useState([]);
   const [reviews, setReviews] = useState(seedReviews);
   const [messages, setMessages] = useState([]);
+  const [portfolio, setPortfolio] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -162,6 +163,10 @@ function useShopData() {
       try {
         const m = await window.storage.get("codeink:messages", true);
         if (m && m.value) setMessages(JSON.parse(m.value));
+      } catch (e) {}
+      try {
+        const p = await window.storage.get("codeink:portfolio", true);
+        if (p && p.value) setPortfolio(JSON.parse(p.value));
       } catch (e) {}
       setLoaded(true);
     })();
@@ -241,11 +246,18 @@ function useShopData() {
       warnIfFailed(!!res);
     } catch (e) { warnIfFailed(false); }
   };
+  const updatePortfolio = async (next) => {
+    setPortfolio(next);
+    try {
+      const res = await window.storage.set("codeink:portfolio", JSON.stringify(next), true);
+      warnIfFailed(!!res);
+    } catch (e) { warnIfFailed(false); }
+  };
 
   return {
-    loaded, designs, artists, prices, categories, promo, bookings, reviews, messages,
+    loaded, designs, artists, prices, categories, promo, bookings, reviews, messages, portfolio,
     updateDesigns, updateArtists, updatePrices, updateCategories, updatePromo,
-    addBooking, updateBookings, addReview, updateReviews, addMessage, updateMessages,
+    addBooking, updateBookings, addReview, updateReviews, addMessage, updateMessages, updatePortfolio,
   };
 }
 
@@ -433,7 +445,7 @@ function Field({ label, children }) {
 }
 
 /* ===================== NAV ===================== */
-const CUSTOMER_PAGES = ["Home", "Gallery", "Pricing", "Calculator", "Artists", "Booking", "About", "FAQ", "Contact"];
+const CUSTOMER_PAGES = ["Home", "Gallery", "Portfolio", "Pricing", "Calculator", "Artists", "Booking", "About", "FAQ", "Contact"];
 
 function NavBar({ page, setPage, menuOpen, setMenuOpen }) {
   return (
@@ -546,6 +558,38 @@ function Home({ setPage, designs, artists, reviews, promo, setGalleryFilter }) {
 }
 
 /* ===================== GALLERY ===================== */
+function Portfolio({ portfolio }) {
+  const [lightbox, setLightbox] = useState(null);
+  return (
+    <div className="ck-section">
+      <h1 className="ck-page-title">Portfolio</h1>
+      <p className="ck-page-sub">Real, finished work — photos of actual pieces done at CODEINK.</p>
+      {portfolio.length === 0 ? (
+        <div className="ck-empty-reviews">
+          <ImageIcon size={22} />
+          <p>No photos posted yet — finished work will show up here as it's completed.</p>
+        </div>
+      ) : (
+        <div className="ck-portfolio-grid">
+          {portfolio.map((p) => (
+            <button key={p.id} className="ck-portfolio-item" onClick={() => setLightbox(p)}>
+              <img src={p.image} alt={p.caption || "CODEINK finished tattoo"} />
+              {p.caption && <span className="ck-portfolio-caption">{p.caption}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {lightbox && (
+        <div className="ck-lightbox" onClick={() => setLightbox(null)}>
+          <button className="ck-lightbox-close" onClick={() => setLightbox(null)}><X size={22} /></button>
+          <img src={lightbox.image} alt={lightbox.caption || "CODEINK finished tattoo"} onClick={(e) => e.stopPropagation()} />
+          {lightbox.caption && <span className="ck-lightbox-caption">{lightbox.caption}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Gallery({ designs, categories, setPage, setActiveDesign, promo, initialFilter }) {
   const [filter, setFilter] = useState(initialFilter || "All");
   useEffect(() => { if (initialFilter) setFilter(initialFilter); }, [initialFilter]);
@@ -1016,6 +1060,7 @@ function AdminLogin({ onLogin }) {
 
 const ADMIN_TABS = [
   { key: "designs", label: "Designs", icon: ImageIcon },
+  { key: "portfolio", label: "Portfolio", icon: Eye },
   { key: "promo", label: "Promo", icon: Sparkles },
   { key: "categories", label: "Categories", icon: Layers },
   { key: "prices", label: "Prices", icon: DollarSign },
@@ -1040,6 +1085,7 @@ function AdminDashboard({ shop, onLogout }) {
       </div>
       <div className="ck-admin-content">
         {tab === "designs" && <AdminDesigns shop={shop} />}
+        {tab === "portfolio" && <AdminPortfolio shop={shop} />}
         {tab === "promo" && <AdminPromo shop={shop} />}
         {tab === "categories" && <AdminCategories shop={shop} />}
         {tab === "prices" && <AdminPrices shop={shop} />}
@@ -1157,6 +1203,81 @@ function AdminDesigns({ shop }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function AdminPortfolio({ shop }) {
+  const blank = { id: "", image: "", caption: "" };
+  const [editing, setEditing] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  const save = () => {
+    if (!editing.image) { window.alert("Add a photo first."); return; }
+    const exists = shop.portfolio.some(p => p.id === editing.id);
+    const next = exists ? shop.portfolio.map(p => p.id === editing.id ? editing : p) : [...shop.portfolio, { ...editing, id: "p" + Date.now() }];
+    shop.updatePortfolio(next);
+    setEditing(null);
+  };
+  const remove = (id) => shop.updatePortfolio(shop.portfolio.filter(p => p.id !== id));
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const dataUrl = await resizeImageFile(file);
+      setEditing((prev) => ({ ...prev, image: dataUrl }));
+    } catch (err) {
+      window.alert("Couldn't read that image — try a different file (JPG, PNG, or WEBP).");
+    }
+    setUploading(false);
+    e.target.value = "";
+  };
+
+  return (
+    <div>
+      <div className="ck-admin-head">
+        <h2>Portfolio ({shop.portfolio.length})</h2>
+        <button className="ck-btn ck-btn-primary ck-btn-sm" onClick={() => setEditing(blank)}><Plus size={14} /> Add photo</button>
+      </div>
+      {editing && (
+        <div className="ck-admin-form">
+          <Field label="Upload a photo from your computer">
+            <div className="ck-upload">
+              <Upload size={15} />
+              <span>{uploading ? "Processing…" : "Choose file"}</span>
+              <input type="file" accept="image/*" onChange={handleFileUpload} disabled={uploading} />
+            </div>
+          </Field>
+          <Field label="…or paste a photo URL instead">
+            <input value={editing.image && editing.image.startsWith("data:") ? "" : (editing.image || "")}
+              onChange={(e) => setEditing({ ...editing, image: e.target.value })}
+              placeholder={editing.image && editing.image.startsWith("data:") ? "Uploaded photo set — typing here replaces it" : "https://..."} />
+          </Field>
+          {editing.image && (
+            <img src={editing.image} alt="preview" style={{ width: 140, height: 140, objectFit: "cover", borderRadius: 4, border: "1px solid var(--ck-line)" }} />
+          )}
+          <Field label="Caption (optional)"><input value={editing.caption} onChange={(e) => setEditing({ ...editing, caption: e.target.value })} placeholder="e.g. Fine line rose — forearm" /></Field>
+          <div className="ck-form-row">
+            <button className="ck-btn ck-btn-primary ck-btn-sm" onClick={save}>Save photo</button>
+            <button className="ck-btn ck-btn-outline ck-btn-sm" onClick={() => setEditing(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      <div className="ck-portfolio-admin-grid">
+        {shop.portfolio.map(p => (
+          <div key={p.id} className="ck-portfolio-admin-item">
+            <img src={p.image} alt={p.caption || "portfolio photo"} />
+            <div className="ck-portfolio-admin-actions">
+              <button onClick={() => setEditing(p)}><Pencil size={14} /></button>
+              <button onClick={() => remove(p.id)}><Trash2 size={14} /></button>
+            </div>
+            {p.caption && <span className="ck-portfolio-admin-caption">{p.caption}</span>}
+          </div>
+        ))}
+      </div>
+      {shop.portfolio.length === 0 && <p className="ck-empty">No portfolio photos yet — add your first one above.</p>}
     </div>
   );
 }
@@ -1515,6 +1636,20 @@ export default function App() {
         .ck-promo-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
         .ck-promo-terms { display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #666; }
 
+        /* PORTFOLIO */
+        .ck-portfolio-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        @media (max-width: 900px) { .ck-portfolio-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 560px) { .ck-portfolio-grid { grid-template-columns: repeat(2, 1fr); } }
+        .ck-portfolio-item { position: relative; aspect-ratio: 1; overflow: hidden; border: none; padding: 0; cursor: pointer; background: var(--ck-surface); }
+        .ck-portfolio-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
+        .ck-portfolio-item:hover img { transform: scale(1.05); }
+        .ck-portfolio-caption { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.85)); color: var(--ck-chrome); font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 20px 8px 8px; text-align: left; opacity: 0; transition: opacity 0.2s; }
+        .ck-portfolio-item:hover .ck-portfolio-caption { opacity: 1; }
+        .ck-lightbox { position: fixed; inset: 0; background: rgba(6,6,6,0.94); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; cursor: zoom-out; }
+        .ck-lightbox img { max-width: 90vw; max-height: 80vh; object-fit: contain; border-radius: 4px; cursor: default; }
+        .ck-lightbox-caption { color: var(--ck-grey); font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+        .ck-lightbox-close { position: absolute; top: 20px; right: 24px; background: none; border: none; color: var(--ck-chrome); cursor: pointer; }
+
         /* CHIPS */
         .ck-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
         .ck-chip { background: var(--ck-surface); border: 1px solid var(--ck-line); color: var(--ck-grey); font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 8px 14px; border-radius: 20px; cursor: pointer; }
@@ -1633,6 +1768,13 @@ export default function App() {
         .ck-row-actions button { background: var(--ck-surface2); border: 1px solid var(--ck-line); color: var(--ck-grey); padding: 6px 9px; border-radius: 3px; cursor: pointer; }
         .ck-row-actions button:hover { color: var(--ck-green); border-color: var(--ck-green); }
         .ck-notes { color: var(--ck-grey); font-size: 12.5px; margin-top: 4px; display: block; }
+        .ck-portfolio-admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+        .ck-portfolio-admin-item { position: relative; background: var(--ck-surface); border: 1px solid var(--ck-line); border-radius: 4px; overflow: hidden; }
+        .ck-portfolio-admin-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+        .ck-portfolio-admin-actions { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; }
+        .ck-portfolio-admin-actions button { background: rgba(6,6,6,0.75); border: 1px solid var(--ck-line); color: var(--ck-chrome); padding: 5px 6px; border-radius: 3px; cursor: pointer; }
+        .ck-portfolio-admin-actions button:hover { color: var(--ck-green); border-color: var(--ck-green); }
+        .ck-portfolio-admin-caption { display: block; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ck-grey); padding: 6px 8px; }
 
         .ck-booking-row { display: flex; justify-content: space-between; gap: 16px; background: var(--ck-surface); border: 1px solid var(--ck-line); padding: 16px 18px; border-radius: 4px; margin-bottom: 8px; flex-wrap: wrap; }
         .ck-booking-main { display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; }
@@ -1656,6 +1798,7 @@ export default function App() {
 
       {page === "Home" && <Home setPage={setPage} designs={shop.designs} artists={shop.artists} reviews={shop.reviews} promo={shop.promo} setGalleryFilter={setGalleryFilter} />}
       {page === "Gallery" && <Gallery designs={shop.designs} categories={shop.categories} setPage={setPage} setActiveDesign={setActiveDesign} promo={shop.promo} initialFilter={galleryFilter} />}
+      {page === "Portfolio" && <Portfolio portfolio={shop.portfolio} />}
       {page === "Design" && <DesignDetail designId={activeDesign} designs={shop.designs} setPage={setPage} />}
       {page === "Pricing" && <Pricing prices={shop.prices} setPage={setPage} />}
       {page === "Calculator" && <Calculator prices={shop.prices} setPage={setPage} setBookingPrefill={setBookingPrefill} />}
