@@ -2,8 +2,8 @@
    Storage shim: the Claude artifact environment provides a global
    window.storage API (get/set/delete/list) for persistence.
    Outside that environment, this calls the /api/storage serverless
-   function, which is backed by Vercel KV — so all visitors and the
-   admin dashboard share the same real data.
+   function (backed by Supabase) — so all visitors and the admin
+   dashboard share the same real data.
 --------------------------------------------------------------- */
 if (typeof window !== "undefined" && !window.storage) {
   const base = "/api/storage";
@@ -87,40 +87,7 @@ const CATEGORY_ICON_PATH = {
   "Custom": "M12 5v14M5 12h14",
 };
 
-const seedDesigns = [
-  { id: "d1", title: "Obsidian Serpent", category: "Blackwork", size: "5-6 in", price: 280, placement: "Forearm, calf", desc: "Bold solid-fill serpent coiled through negative space. Heavy blacks with sharp linework.", image: "FLASH:snake" },
-  { id: "d2", title: "Void Mandala", category: "Blackwork", size: "3-4 in", price: 190, placement: "Shoulder, back", desc: "Symmetrical dotwork mandala built from dense black fields and radial patterning." },
-  { id: "d3", title: "Smoke Portrait", category: "Black & Grey", size: "7+ in", price: 460, placement: "Upper arm, thigh", desc: "Soft-shaded portrait piece with smoky gradients and realistic depth." },
-  { id: "d4", title: "Ashwolf", category: "Black & Grey", size: "5-6 in", price: 300, placement: "Forearm, ribs", desc: "Greyscale wolf study, layered shading for a photographic feel." },
-  { id: "d5", title: "Thread & Needle", category: "Fine Line", size: "1-2 in", price: 90, placement: "Wrist, ankle", desc: "Delicate single-needle linework, minimal shading, clean and precise." },
-  { id: "d6", title: "Botanical Sprig", category: "Fine Line", size: "3-4 in", price: 150, placement: "Forearm, collarbone", desc: "Fine botanical line art with subtle stippled texture." },
-  { id: "d7", title: "Lion Study", category: "Realism", size: "7+ in", price: 520, placement: "Back, chest", desc: "Full realism piece with photographic shading and fur texture detail." },
-  { id: "d8", title: "Eye of Glass", category: "Realism", size: "5-6 in", price: 380, placement: "Bicep, calf", desc: "Hyper-real eye study with reflective highlights and deep contrast." },
-  { id: "d9", title: "Signal Ghost", category: "Cybersigilism", size: "5-6 in", price: 320, placement: "Forearm, neck", desc: "Circuit-glyph sigil built from layered geometric wire patterns and glow accents." },
-  { id: "d10", title: "Kernel Sigil", category: "Cybersigilism", size: "3-4 in", price: 220, placement: "Hand, forearm", desc: "Dense sigil-code hybrid symbol, sharp vector-style linework." },
-  { id: "d11", title: "Single Line Wave", category: "Minimalist", size: "1-2 in", price: 80, placement: "Wrist, finger", desc: "One continuous line forming a wave motif. Clean and understated.", image: "FLASH:wave" },
-  { id: "d12", title: "Quiet Moon", category: "Minimalist", size: "1-2 in", price: 85, placement: "Ankle, behind ear", desc: "Simple crescent moon, no shading, pure linework.", image: "FLASH:moon" },
-  { id: "d15", title: "Single Dot", category: "Minimalist", size: "1 in", price: 60, placement: "Finger, wrist", desc: "One clean solid dot. The smallest, quietest piece in the collection." },
-  { id: "d16", title: "Arrow Line", category: "Minimalist", size: "1-2 in", price: 75, placement: "Forearm, ankle", desc: "A single straight arrow, no shading, precise single-needle line." },
-  { id: "d17", title: "Star Outline", category: "Minimalist", size: "1-2 in", price: 80, placement: "Wrist, collarbone", desc: "Open five-point star outline, kept light and airy.", image: "FLASH:star" },
-  { id: "d18", title: "Tiny Heart", category: "Minimalist", size: "1 in", price: 65, placement: "Finger, behind ear", desc: "A small open-line heart, barely-there and easy to hide or show." },
-  { id: "d19", title: "Bracket Set", category: "Minimalist", size: "1-2 in", price: 75, placement: "Wrist, ribs", desc: "A pair of simple brackets [ ], often paired with initials or a date inside." },
-  { id: "d20", title: "Line Rose", category: "Minimalist", size: "1-2 in", price: 85, placement: "Forearm, ribs", desc: "A single-line rose bloom on a simple stem. No shading, just clean outline.", image: "FLASH:rose" },
-  { id: "d21", title: "Little Butterfly", category: "Minimalist", size: "1-2 in", price: 80, placement: "Wrist, ankle", desc: "Open-wing butterfly outline, symmetrical and lightweight.", image: "FLASH:butterfly" },
-  { id: "d22", title: "Sunburst", category: "Minimalist", size: "1 in", price: 70, placement: "Wrist, behind ear", desc: "Small sun with radiating lines. A popular first-tattoo pick." },
-  { id: "d23", title: "Single Feather", category: "Minimalist", size: "1-2 in", price: 80, placement: "Forearm, collarbone", desc: "One clean feather outline with simple vein lines." },
-  { id: "d24", title: "Simple Anchor", category: "Minimalist", size: "1-2 in", price: 80, placement: "Forearm, calf", desc: "Classic anchor silhouette, reduced to its simplest lines." },
-  { id: "d25", title: "Skeleton Key", category: "Minimalist", size: "1-2 in", price: 80, placement: "Wrist, ribs", desc: "A small vintage-style key outline, no shading." },
-  { id: "d26", title: "Cherries", category: "Minimalist", size: "1 in", price: 70, placement: "Wrist, ankle", desc: "Two cherries on connecting stems, kept light and playful." },
-  { id: "d27", title: "Lightning Bolt", category: "Minimalist", size: "1 in", price: 65, placement: "Finger, wrist", desc: "A single sharp bolt. Small, bold, and to the point.", image: "FLASH:lightning" },
-  { id: "d28", title: "CodeInk Signature", category: "Custom", size: "1-2 in", price: 0, placement: "Forearm, wrist", desc: "Our own studio mark — a hand-lettered CodeInk wordmark with a signature star. A fun way to rep the shop, or a template for your own custom script piece.", image: "FLASH:codeink_sig" },
-  { id: "d29", title: "Ritual Dagger", category: "Blackwork", size: "3-4 in", price: 210, placement: "Forearm, calf", desc: "Upright dagger with a guiding star above the hilt. Bold, symmetrical blackwork linework.", image: "FLASH:dagger" },
-  { id: "d30", title: "Skull Study", category: "Blackwork", size: "3-4 in", price: 230, placement: "Forearm, back", desc: "Classic front-facing skull, clean bold outline with minimal internal linework.", image: "FLASH:skull" },
-  { id: "d31", title: "Evil Eye", category: "Blackwork", size: "1-2 in", price: 150, placement: "Wrist, hand", desc: "Protective all-seeing eye with radiating lash lines. A popular small blackwork piece.", image: "FLASH:eye" },
-  { id: "d32", title: "Spiderweb Corner", category: "Blackwork", size: "1-2 in", price: 130, placement: "Elbow, hand", desc: "Traditional corner spiderweb, a classic bold-line blackwork placement piece.", image: "FLASH:spiderweb" },
-  { id: "d13", title: "Your Vision", category: "Custom", size: "Varies", price: 0, placement: "Anywhere", desc: "Bring your own concept — our artists will design a one-of-one piece with you." },
-  { id: "d14", title: "Memorial Piece", category: "Custom", size: "Varies", price: 0, placement: "Anywhere", desc: "Custom tribute or memorial design, developed in a private consultation." },
-];
+const seedDesigns = [];
 
 const seedArtists = [
   { id: "a1", name: "Lance Carlo Awit", specialty: "Flexible — open across styles", bio: "New to tattooing and still early in the journey — building a portfolio one piece at a time rather than sticking to one lane. Every design gets the same care, whether it's a first tattoo or a returning client's tenth.", pieces: 0 },
