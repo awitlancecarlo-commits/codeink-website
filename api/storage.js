@@ -3,12 +3,25 @@
 // so every visitor and the admin dashboard read/write the same data.
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+function getClient() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      `Missing Supabase environment variable(s): ${!url ? "SUPABASE_URL " : ""}${!key ? "SUPABASE_SERVICE_ROLE_KEY" : ""}`.trim()
+    );
+  }
+  return createClient(url, key);
+}
 
 export default async function handler(req, res) {
+  let supabase;
+  try {
+    supabase = getClient();
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+
   try {
     if (req.method === "GET") {
       const { key, prefix } = req.query;
