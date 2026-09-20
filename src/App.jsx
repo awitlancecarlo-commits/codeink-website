@@ -493,7 +493,7 @@ function Home({ setPage, designs, artists, reviews, promo, setGalleryFilter }) {
       <section className="ck-hero">
         <div className="ck-hero-grid" />
         <img src={LOGO_SRC} alt="CODEINK Tattoo Studio" className="ck-hero-logo" />
-        <p className="ck-hero-sub">Stories hidden in ink, read differently by everyone who sees them.</p>
+        <p className="ck-hero-sub">Just as code hides a message within its lines, tattoos hide stories beneath their ink—understood differently by everyone who sees them.</p>
         <div className="ck-hero-actions">
           <button className="ck-btn ck-btn-primary" onClick={() => setPage("Gallery")}>
             View Designs <ArrowRight size={16} />
