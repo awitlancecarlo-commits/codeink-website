@@ -813,6 +813,17 @@ function Booking({ designs, artists, addBooking, prefill, setPrefill }) {
         <Check size={40} color="#39FF6A" />
         <h1>Booking request sent</h1>
         <p>CODEINK will review your request and confirm your appointment by email within 24–48 hours. A deposit link will be included in your confirmation.</p>
+        <div className="ck-confirm-social">
+          <span className="ck-mono">Want a faster reply or have questions? Message CODEINK directly:</span>
+          <div className="ck-confirm-social-links">
+            <a href="https://www.instagram.com/lansss.not.lanzzz/" target="_blank" rel="noopener noreferrer" className="ck-social-btn">
+              <Instagram size={18} /> Instagram
+            </a>
+            <a href="https://www.facebook.com/lance.awit.7" target="_blank" rel="noopener noreferrer" className="ck-social-btn">
+              <Facebook size={18} /> Facebook
+            </a>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1420,7 +1431,39 @@ function AdminArtists({ shop }) {
 }
 
 function AdminBookings({ shop }) {
-  const setStatus = (id, status) => shop.updateBookings(shop.bookings.map(b => b.id === id ? { ...b, status } : b));
+  const [sendingId, setSendingId] = useState(null);
+
+  const setStatus = async (id, status) => {
+    const booking = shop.bookings.find(b => b.id === id);
+    shop.updateBookings(shop.bookings.map(b => b.id === id ? { ...b, status } : b));
+
+    if (!booking?.email) return;
+    setSendingId(id);
+    try {
+      const res = await fetch("/api/notify-booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: booking.email,
+          name: booking.name,
+          status,
+          designTitle: booking.designTitle,
+          size: booking.size,
+          placement: booking.placement,
+          date: booking.date,
+          time: booking.time,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        window.alert(`Status updated, but the email couldn't be sent: ${data.error || "unknown error"}`);
+      }
+    } catch (e) {
+      window.alert("Status updated, but the email couldn't be sent (network error).");
+    }
+    setSendingId(null);
+  };
+
   return (
     <div>
       <div className="ck-admin-head"><h2>Bookings ({shop.bookings.length})</h2></div>
@@ -1439,8 +1482,12 @@ function AdminBookings({ shop }) {
             <div className="ck-booking-status">
               <span className={`ck-status ck-status-${b.status.toLowerCase()}`}>{b.status}</span>
               <div className="ck-row-actions">
-                <button className="ck-btn ck-btn-sm ck-btn-primary" onClick={() => setStatus(b.id, "Approved")}>Approve</button>
-                <button className="ck-btn ck-btn-sm ck-btn-outline" onClick={() => setStatus(b.id, "Declined")}>Decline</button>
+                <button className="ck-btn ck-btn-sm ck-btn-primary" disabled={sendingId === b.id} onClick={() => setStatus(b.id, "Approved")}>
+                  {sendingId === b.id ? "Sending…" : "Approve"}
+                </button>
+                <button className="ck-btn ck-btn-sm ck-btn-outline" disabled={sendingId === b.id} onClick={() => setStatus(b.id, "Declined")}>
+                  {sendingId === b.id ? "Sending…" : "Decline"}
+                </button>
               </div>
             </div>
           </div>
@@ -1705,6 +1752,10 @@ export default function App() {
         .ck-confirm { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 100px 24px; }
         .ck-confirm h1 { font-family: 'Anton', sans-serif; text-transform: uppercase; font-size: 28px; }
         .ck-confirm p { color: var(--ck-grey); max-width: 46ch; }
+        .ck-confirm-social { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 20px; padding-top: 24px; border-top: 1px solid var(--ck-line); width: 100%; max-width: 420px; }
+        .ck-confirm-social-links { display: flex; gap: 12px; }
+        .ck-social-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 1px solid var(--ck-line); border-radius: 3px; color: var(--ck-chrome); font-family: 'JetBrains Mono', monospace; font-size: 12.5px; text-decoration: none; transition: all 0.15s; }
+        .ck-social-btn:hover { border-color: var(--ck-green); color: var(--ck-green); }
 
         /* ARTISTS */
         .ck-artist-card { display: flex; gap: 20px; background: var(--ck-surface); border: 1px solid var(--ck-line); padding: 24px; border-radius: 6px; }
