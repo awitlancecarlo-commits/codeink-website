@@ -1062,9 +1062,9 @@ function AdminLogin({ onLogin }) {
           placeholder="Passcode" onKeyDown={(e) => e.key === "Enter" && (pass === "codeink2026" ? onLogin() : setErr(true))} />
         <button onClick={() => setShow(s => !s)} className="ck-eye-btn">{show ? <EyeOff size={16} /> : <Eye size={16} />}</button>
       </div>
-      <button className="ck-btn ck-btn-primary" onClick={() => pass === "codeink2026" ? onLogin() : setErr(true)}>Enter dashboard</button>
-      {err && <span className="ck-form-hint">Incorrect passcode. Try "codeink2026".</span>}
-      <span className="ck-mono ck-admin-note">Demo passcode: codeink2026 — for a live shop, replace with real authentication.</span>
+      <button className="ck-btn ck-btn-primary" onClick={() => pass === "codeink_2026" ? onLogin() : setErr(true)}>Enter dashboard</button>
+      {err && <span className="ck-form-hint">Incorrect passcode. Try Again.</span>}
+      <span className="ck-mono ck-admin-note">Strictly for admin Only!</span>
     </div>
   );
 }
